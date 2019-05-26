@@ -9,7 +9,6 @@
 int main(int argc, char const *argv[]) {
   int32_t localeCount = uloc_countAvailable();
   size_t currencyLength = sizeof(UChar) * 3;
-  UChar* currency = (UChar*) malloc(currencyLength);
   UErrorCode ec = U_ZERO_ERROR;
   UConverter* conv = ucnv_open("ASCII", &ec);
 
@@ -23,28 +22,24 @@ int main(int argc, char const *argv[]) {
   for(int32_t i = 0; i < localeCount; i++) {
     const char* locale = uloc_getAvailable(i);
     printf("Got locale: %s\n", locale);
-
-    ucurr_forLocale(locale, currency, currencyLength, &ec);
-    if (ec != U_ZERO_ERROR) {
-      printf("Error in ucurr_forLocale: %s\n", u_errorName(ec));
-      continue;
-    }
-
-    int32_t currencyAsStringLength = UCNV_GET_MAX_BYTES_FOR_STRING(currencyLength, ucnv_getMaxCharSize(conv));
-    char* currencyAsString = malloc(currencyAsStringLength);
-    ucnv_fromUChars(conv, currencyAsString, currencyAsStringLength, currency, currencyLength, &ec);
-
-    printf("got currency: %s\n", currencyAsString);
-
-    free(currencyAsString);
   }
 
-  // unumf_openForSkeletonAndLocale
-  // UNumberFormatStyle
-  // unum_formatDoubleCurrency
-  // ucurr_forLocale
+  UEnumeration* currencies = ucurr_openISOCurrencies(UCURR_ALL|UCURR_NON_DEPRECATED, &ec);
+  if (ec != U_ZERO_ERROR) {
+    printf("Error in ucurr_openISOCurrencies: %s\n", u_errorName(ec));
+    return ec;
+  }
 
-  free(currency);
+  int32_t currencyCount = uenum_count(currencies, &ec);
+  printf("Got currencies: %i\n", currencyCount);
+
+  const char* currency = NULL;
+  while ((currency = uenum_next(currencies, NULL, &ec))) {
+    printf("Got currency: %s\n", currency);
+  }
+  uenum_reset(currencies, &ec);
+
+  uenum_close(currencies);
 
   return 0;
 }
