@@ -1,3 +1,7 @@
 glibc
+glibc-build
+glibc-install
 icu
+icu-build
+icu-install
 .vscode

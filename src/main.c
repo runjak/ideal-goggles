@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <locale.h>
 
 // https://ssl.icu-project.org/apiref/icu4c/
 #include <unicode/uloc.h>
@@ -19,6 +20,7 @@ void breakOnError(UErrorCode ec) {
 }
 
 int main(int argc, char const *argv[]) {
+#if 0
   int32_t localeCount = uloc_countAvailable();
   size_t currencyLength = sizeof(UChar) * 3;
   UErrorCode ec = U_ZERO_ERROR;
@@ -72,7 +74,11 @@ int main(int argc, char const *argv[]) {
   breakOnError(ec);
 
   printf("DRAGONS: %s\n", outputBuffer);
-  // unum_formatDoubleCurrency
+#endif
+
+  char *selectedLocale = setlocale(LC_MONETARY, "en_US.UTF-8");
+  printf("Selected locale: %s\n", selectedLocale);
+  // ./bin/localedef -i en_US -c -f UTF-8 -A $PWD/share/locale/locale.alias en_US.UTF-8
 
   return 0;
 }
