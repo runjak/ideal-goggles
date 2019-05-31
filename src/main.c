@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <locale.h>
+#include <monetary.h>
 
 // https://ssl.icu-project.org/apiref/icu4c/
 #include <unicode/uloc.h>
@@ -78,7 +79,11 @@ int main(int argc, char const *argv[]) {
 
   char *selectedLocale = setlocale(LC_MONETARY, "en_US.UTF-8");
   printf("Selected locale: %s\n", selectedLocale);
-  // ./bin/localedef -i en_US -c -f UTF-8 -A $PWD/share/locale/locale.alias en_US.UTF-8
+
+  char buf[100];
+  strfmon(buf, 100, "%n", 123.45);
+
+  printf("Money? %s\n", buf);
 
   return 0;
 }
