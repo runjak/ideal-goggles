@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <locale.h>
 #include <monetary.h>
+#include <string.h>
 
 // https://ssl.icu-project.org/apiref/icu4c/
 #include <unicode/uloc.h>
@@ -20,8 +21,13 @@ void breakOnError(UErrorCode ec) {
   }
 }
 
+void strConcat(char *dest, size_t destLength, const char *src1, const char *src2) {
+  memset(dest, 0, destLength);
+  strcat(dest, src1);
+  strcat(dest, src2);
+}
+
 int main(int argc, char const *argv[]) {
-#if 0
   int32_t localeCount = uloc_countAvailable();
   size_t currencyLength = sizeof(UChar) * 3;
   UErrorCode ec = U_ZERO_ERROR;
@@ -32,13 +38,31 @@ int main(int argc, char const *argv[]) {
     return ec;
   }
 
-  printf("Available locales: %i\n", localeCount);
+  char* utf8Suffix = ".UTF-8";
 
   for (int32_t i = 0; i < localeCount; i++) {
-    const char *locale = uloc_getAvailable(i);
-    printf("%i: %s\n", i, locale);
+    const char *icuLocale = uloc_getAvailable(i);
+
+    UChar icuCurrency[currencyLength];
+    ucurr_forLocale(icuLocale, icuCurrency, currencyLength, &ec);
+    breakOnError(ec);
+
+    size_t libcLocaleLength = strlen(icuLocale) + strlen(utf8Suffix) + 1;
+    char libcLocale[libcLocaleLength];
+    strConcat(libcLocale, libcLocaleLength, icuLocale, utf8Suffix);
+
+    char *selectedLibcLocale = setlocale(LC_MONETARY, libcLocale);
+
+    if (selectedLibcLocale == NULL) {
+      printf("No libc LC_MONETARY for %s\n", libcLocale);
+      continue;
+    }
+
+    // char *libcLocale = setlocale(LC_MONETARY, "en_US.UTF-8");
+    // printf("%i: %s -> %s => %s\n", i, icuLocale, libcLocale, selectedLibcLocale);
   }
 
+#if 0
   UEnumeration *currencies = ucurr_openISOCurrencies(UCURR_ALL|UCURR_NON_DEPRECATED, &ec);
   if (ec != U_ZERO_ERROR) {
     printf("Error in ucurr_openISOCurrencies: %s\n", u_errorName(ec));
@@ -77,6 +101,7 @@ int main(int argc, char const *argv[]) {
   printf("DRAGONS: %s\n", outputBuffer);
 #endif
 
+#if 0
   char *selectedLocale = setlocale(LC_MONETARY, "en_US.UTF-8");
   printf("Selected locale: %s\n", selectedLocale);
 
@@ -84,6 +109,7 @@ int main(int argc, char const *argv[]) {
   strfmon(buf, 100, "%n", 123.45);
 
   printf("Money? %s\n", buf);
+#endif
 
   return 0;
 }
