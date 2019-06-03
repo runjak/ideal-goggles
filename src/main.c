@@ -28,23 +28,35 @@ void strConcat(char *dest, size_t destLength, const char *src1, const char *src2
 }
 
 int main(int argc, char const *argv[]) {
-  int32_t localeCount = uloc_countAvailable();
-  size_t currencyLength = sizeof(UChar) * 3;
-  UErrorCode ec = U_ZERO_ERROR;
-  UConverter *conv = ucnv_open("ASCII", &ec);
+  uint8_t testAmountsCount = 11 * 2;
+  double testAmounts[testAmountsCount];
+  testAmounts[0] = 0;
+  testAmounts[1] = 123456789;
+  for (uint8_t i = 2; i < testAmountsCount; i++) {
+    double x = -testAmounts[i-1];
 
-  if (ec != U_ZERO_ERROR) {
-    printf("Error in ucnv_open: %s\n", u_errorName(ec));
-    return ec;
+    if (i%2 == 0) {
+      x /= 10;
+    }
+
+    testAmounts[i] = x;
   }
 
+  printf("Using testAmounts:\n------------------\n\n```c\n");
+  for (uint8_t i = 0; i < testAmountsCount; i++) {
+    printf("testAmounts[%i] = %f\n", i, testAmounts[i]);
+  }
+  printf("```\n");
+
+  int32_t localeCount = uloc_countAvailable();
+  UErrorCode ec = U_ZERO_ERROR;
   char* utf8Suffix = ".UTF-8";
+
+  printf("\nIterating %i icu locales:\n--------------------------\n\n", localeCount);
 
   for (int32_t i = 0; i < localeCount; i++) {
     const char *icuLocale = uloc_getAvailable(i);
-
-    UChar icuCurrency[currencyLength];
-    ucurr_forLocale(icuLocale, icuCurrency, currencyLength, &ec);
+    UNumberFormat *icuNumberFormat = unum_open(UNUM_CURRENCY, NULL, -1, icuLocale, NULL, &ec);
     breakOnError(ec);
 
     size_t libcLocaleLength = strlen(icuLocale) + strlen(utf8Suffix) + 1;
@@ -52,17 +64,37 @@ int main(int argc, char const *argv[]) {
     strConcat(libcLocale, libcLocaleLength, icuLocale, utf8Suffix);
 
     char *selectedLibcLocale = setlocale(LC_MONETARY, libcLocale);
-
     if (selectedLibcLocale == NULL) {
-      printf("No libc LC_MONETARY for %s\n", libcLocale);
+      printf("LC_MONETARY missing for libcLocale: %s\n", libcLocale);
       continue;
     }
 
-    // char *libcLocale = setlocale(LC_MONETARY, "en_US.UTF-8");
-    // printf("%i: %s -> %s => %s\n", i, icuLocale, libcLocale, selectedLibcLocale);
+    const size_t bufferSize = 256;
+
+    UChar uCurrencyName[bufferSize];
+    u_strFromUTF8(uCurrencyName, bufferSize, NULL, "CHF", -1, &ec);
+    breakOnError(ec);
+
+    for (uint8_t testAmountIndex = 0; testAmountIndex < testAmountsCount; testAmountIndex++) {
+      double testAmount = testAmounts[testAmountIndex];
+
+      UChar icuFormattedU[bufferSize];
+      int32_t bufferUsed = unum_formatDoubleCurrency(icuNumberFormat, testAmount, uCurrencyName, icuFormattedU, bufferSize, NULL, &ec);
+      char icuFormatted[bufferSize];
+      u_strToUTF8(icuFormatted, bufferSize, NULL, icuFormattedU, -1, &ec);
+      breakOnError(ec);
+
+      char libcFormatted[bufferSize];
+      strfmon(libcFormatted, bufferSize, "%n", 123.45);
+
+      int comparison = strcmp(icuFormatted, libcFormatted);
+      if (comparison == 0) {
+        printf("Locale %s yields same strings: %s, %s\n", icuLocale, icuFormatted, libcFormatted);
+      }
+    }
   }
 
-#if 0
+  #if 0
   UEnumeration *currencies = ucurr_openISOCurrencies(UCURR_ALL|UCURR_NON_DEPRECATED, &ec);
   if (ec != U_ZERO_ERROR) {
     printf("Error in ucurr_openISOCurrencies: %s\n", u_errorName(ec));
@@ -81,35 +113,7 @@ int main(int argc, char const *argv[]) {
   uenum_reset(currencies, &ec);
 
   uenum_close(currencies);
-
-  UNumberFormat *numberFormat = unum_open(UNUM_CURRENCY, NULL, -1, "fr_CH", NULL, &ec);
-  breakOnError(ec);
-
-  const size_t bufferSize = 256;
-
-  UChar uCurrencyName[bufferSize];
-  u_strFromUTF8(uCurrencyName, bufferSize, NULL, "CHF", -1, &ec);
-  breakOnError(ec);
-
-  UChar buffer[bufferSize];
-  int32_t bufferUsed = unum_formatDoubleCurrency(numberFormat, -1234.56, uCurrencyName, buffer, bufferSize, NULL, &ec);
-
-  char outputBuffer[bufferSize];
-  u_strToUTF8(outputBuffer, bufferSize, NULL, buffer, -1, &ec);
-  breakOnError(ec);
-
-  printf("DRAGONS: %s\n", outputBuffer);
-#endif
-
-#if 0
-  char *selectedLocale = setlocale(LC_MONETARY, "en_US.UTF-8");
-  printf("Selected locale: %s\n", selectedLocale);
-
-  char buf[100];
-  strfmon(buf, 100, "%n", 123.45);
-
-  printf("Money? %s\n", buf);
-#endif
+  #endif
 
   return 0;
 }
