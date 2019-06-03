@@ -57,7 +57,9 @@ int main(int argc, char const *argv[]) {
   for (int32_t i = 0; i < localeCount; i++) {
     const char *icuLocale = uloc_getAvailable(i);
     UNumberFormat *icuNumberFormat = unum_open(UNUM_CURRENCY, NULL, -1, icuLocale, NULL, &ec);
-    breakOnError(ec);
+    if (ec != U_USING_DEFAULT_WARNING) {
+      breakOnError(ec);
+    }
 
     size_t libcLocaleLength = strlen(icuLocale) + strlen(utf8Suffix) + 1;
     char libcLocale[libcLocaleLength];
@@ -65,32 +67,39 @@ int main(int argc, char const *argv[]) {
 
     char *selectedLibcLocale = setlocale(LC_MONETARY, libcLocale);
     if (selectedLibcLocale == NULL) {
-      printf("LC_MONETARY missing for libcLocale: %s\n", libcLocale);
+      // printf("LC_MONETARY missing for libcLocale: %s\n", libcLocale);
       continue;
     }
 
     const size_t bufferSize = 256;
 
     UChar uCurrencyName[bufferSize];
-    u_strFromUTF8(uCurrencyName, bufferSize, NULL, "CHF", -1, &ec);
-    breakOnError(ec);
+    unum_getTextAttribute(icuNumberFormat, UNUM_CURRENCY_CODE, uCurrencyName, bufferSize, &ec);
+    if (ec != U_USING_DEFAULT_WARNING) {
+      breakOnError(ec);
+    }
 
     for (uint8_t testAmountIndex = 0; testAmountIndex < testAmountsCount; testAmountIndex++) {
       double testAmount = testAmounts[testAmountIndex];
 
       UChar icuFormattedU[bufferSize];
       int32_t bufferUsed = unum_formatDoubleCurrency(icuNumberFormat, testAmount, uCurrencyName, icuFormattedU, bufferSize, NULL, &ec);
+      if (ec != U_USING_FALLBACK_WARNING && ec != U_USING_DEFAULT_WARNING) {
+        breakOnError(ec);
+      }
       char icuFormatted[bufferSize];
       u_strToUTF8(icuFormatted, bufferSize, NULL, icuFormattedU, -1, &ec);
-      breakOnError(ec);
+      if (ec != U_USING_FALLBACK_WARNING && ec != U_USING_DEFAULT_WARNING) {
+        breakOnError(ec);
+      }
 
       char libcFormatted[bufferSize];
       strfmon(libcFormatted, bufferSize, "%n", 123.45);
 
-      int comparison = strcmp(icuFormatted, libcFormatted);
-      if (comparison == 0) {
-        printf("Locale %s yields same strings: %s, %s\n", icuLocale, icuFormatted, libcFormatted);
-      }
+      // int comparison = strcmp(icuFormatted, libcFormatted);
+      // if (comparison == 0) {
+        printf("Locale %s yields strings: %s, %s\n", icuLocale, icuFormatted, libcFormatted);
+      // }
     }
   }
 
