@@ -94,12 +94,12 @@ int main(int argc, char const *argv[]) {
       }
 
       char libcFormatted[bufferSize];
-      strfmon(libcFormatted, bufferSize, "%n", 123.45);
+      strfmon(libcFormatted, bufferSize, "%n", testAmount);
 
-      // int comparison = strcmp(icuFormatted, libcFormatted);
-      // if (comparison == 0) {
-        printf("Locale %s yields strings: %s, %s\n", icuLocale, icuFormatted, libcFormatted);
-      // }
+      int comparison = strcmp(icuFormatted, libcFormatted);
+      if (comparison != 0) {
+        printf("Locale %s for %f yields strings: '%s', '%s'\n", icuLocale, testAmount, icuFormatted, libcFormatted);
+      }
     }
   }
 
