@@ -1,6 +1,8 @@
 #!/bin/bash
 set -ue
 
+mkdir -p ./glibc-install/lib/locale
+
 locales=$(find glibc-install/share/i18n/locales -type f | cut -d '/' -f5-)
 
 for locale in $locales
