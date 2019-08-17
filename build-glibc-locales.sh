@@ -8,3 +8,4 @@ do
   echo "localedef for ${locale}"
   ./glibc-install/bin/localedef -i ${locale} -c -f UTF-8 -A ./glibc-install/share/locale/locale.alias ${locale}.UTF-8 || true
 done
+
