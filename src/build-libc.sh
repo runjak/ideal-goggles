@@ -1,6 +1,8 @@
 #!/bin/bash
 set -ue
 
+LDSO=($PWD/../glibc-install/lib/ld*.so)
+
 clang \
   -nodefaultlibs -nostdinc \
   -I../glibc-install/include \
@@ -8,8 +10,5 @@ clang \
   -L../glibc-install/lib \
   -Wl,-rpath='$ORIGIN'/../glibc-install/lib \
   -lc \
-  -I../icu-install/include \
-  -L../icu-install/lib \
-  -licui18n -licuuc -licudata \
-  -Wl,-rpath='$ORIGIN'/../icu-install/lib \
-  main.c -o ideal-goggles
+  -Wl,--dynamic-linker=${LDSO[0]} \
+  currencies-libc.c -o currencies-libc

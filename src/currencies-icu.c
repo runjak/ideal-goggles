@@ -61,16 +61,6 @@ int main(int argc, char const *argv[]) {
       breakOnError(ec);
     }
 
-    size_t libcLocaleLength = strlen(icuLocale) + strlen(utf8Suffix) + 1;
-    char libcLocale[libcLocaleLength];
-    strConcat(libcLocale, libcLocaleLength, icuLocale, utf8Suffix);
-
-    char *selectedLibcLocale = setlocale(LC_MONETARY, libcLocale);
-    if (selectedLibcLocale == NULL) {
-      // printf("LC_MONETARY missing for libcLocale: %s\n", libcLocale);
-      continue;
-    }
-
     const size_t bufferSize = 256;
 
     UChar uCurrencyName[bufferSize];
@@ -93,36 +83,9 @@ int main(int argc, char const *argv[]) {
         breakOnError(ec);
       }
 
-      char libcFormatted[bufferSize];
-      strfmon(libcFormatted, bufferSize, "%n", testAmount);
-
-      int comparison = strcmp(icuFormatted, libcFormatted);
-      if (comparison != 0) {
-        printf("Locale %s for %f yields strings: '%s', '%s'\n", icuLocale, testAmount, icuFormatted, libcFormatted);
-      }
+      printf("Locale %s for %f yields: '%s'\n", icuLocale, testAmount, icuFormatted);
     }
   }
-
-  #if 0
-  UEnumeration *currencies = ucurr_openISOCurrencies(UCURR_ALL|UCURR_NON_DEPRECATED, &ec);
-  if (ec != U_ZERO_ERROR) {
-    printf("Error in ucurr_openISOCurrencies: %s\n", u_errorName(ec));
-    return ec;
-  }
-
-  int32_t currencyCount = uenum_count(currencies, &ec);
-  printf("Got currencies: %i\n", currencyCount);
-
-  int i = 0;
-  const char *currency = NULL;
-  while ((currency = uenum_next(currencies, NULL, &ec))) {
-    printf("Got currency (%i): %s\n", i, currency);
-    i++;
-  }
-  uenum_reset(currencies, &ec);
-
-  uenum_close(currencies);
-  #endif
 
   return 0;
 }
