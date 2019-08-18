@@ -4,7 +4,7 @@ set -ue
 clang \
   -nodefaultlibs -nostdinc \
   -I../glibc-install/include \
-  -I/usr/lib/clang/8.0.0/include \
+  -I/usr/lib/clang/8.0.1/include \
   -L../glibc-install/lib \
   -Wl,-rpath='$ORIGIN'/../glibc-install/lib \
   -lc \
