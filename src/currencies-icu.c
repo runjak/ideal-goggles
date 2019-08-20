@@ -1,7 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <locale.h>
-#include <monetary.h>
 #include <string.h>
 
 // https://ssl.icu-project.org/apiref/icu4c/
