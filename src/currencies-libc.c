@@ -30,14 +30,6 @@ int main(int argc, char const *argv[]) {
     testAmounts[i] = x;
   }
 
-  printf("Using testAmounts:\n------------------\n\n```c\n");
-  for (uint8_t i = 0; i < testAmountsCount; i++) {
-    printf("testAmounts[%i] = %f\n", i, testAmounts[i]);
-  }
-  printf("```\n");
-
-  printf("\nIterating %i libc locales:\n--------------------------\n\n", argc - 1);
-
   char* utf8Suffix = ".UTF-8";
   for (int localeIndex = 1; localeIndex < argc; localeIndex++) {
     size_t libcLocaleLength = strlen(argv[localeIndex]) + strlen(utf8Suffix) + 1;
@@ -46,7 +38,7 @@ int main(int argc, char const *argv[]) {
 
     char *selectedLibcLocale = setlocale(LC_MONETARY, libcLocale);
     if (selectedLibcLocale == NULL) {
-      printf("LC_MONETARY missing for libcLocale: %s\n", libcLocale);
+      printf("%s\30", libcLocale);
       continue;
     }
 
@@ -56,7 +48,7 @@ int main(int argc, char const *argv[]) {
       char libcFormatted[bufferSize];
       strfmon(libcFormatted, bufferSize, "%n", testAmount);
 
-      printf("Locale %s for %f yields: '%s'\n", argv[localeIndex], testAmount, libcFormatted);
+      printf("%s\31%f\31%s\30", argv[localeIndex], testAmount, libcFormatted);
     }
   }
 

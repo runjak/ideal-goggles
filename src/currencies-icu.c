@@ -42,17 +42,9 @@ int main(int argc, char const *argv[]) {
     testAmounts[i] = x;
   }
 
-  printf("Using testAmounts:\n------------------\n\n```c\n");
-  for (uint8_t i = 0; i < testAmountsCount; i++) {
-    printf("testAmounts[%i] = %f\n", i, testAmounts[i]);
-  }
-  printf("```\n");
-
   int32_t localeCount = uloc_countAvailable();
   UErrorCode ec = U_ZERO_ERROR;
   char* utf8Suffix = ".UTF-8";
-
-  printf("\nIterating %i icu locales:\n--------------------------\n\n", localeCount);
 
   for (int32_t i = 0; i < localeCount; i++) {
     const char *icuLocale = uloc_getAvailable(i);
@@ -83,7 +75,7 @@ int main(int argc, char const *argv[]) {
         breakOnError(ec);
       }
 
-      printf("Locale %s for %f yields: '%s'\n", icuLocale, testAmount, icuFormatted);
+      printf("%s\31%f\31%s\30", icuLocale, testAmount, icuFormatted);
     }
   }
 
