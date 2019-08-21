@@ -5,3 +5,4 @@ icu
 icu-build
 icu-install
 .vscode
+node_modules

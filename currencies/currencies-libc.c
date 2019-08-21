@@ -12,8 +12,6 @@ void strConcat(char *dest, size_t destLength, const char *src1, const char *src2
 }
 
 int main(int argc, char const *argv[]) {
-  printf("Hello glibc\n");
-
   const size_t bufferSize = 256;
 
   uint8_t testAmountsCount = 11 * 2;
@@ -38,7 +36,7 @@ int main(int argc, char const *argv[]) {
 
     char *selectedLibcLocale = setlocale(LC_MONETARY, libcLocale);
     if (selectedLibcLocale == NULL) {
-      printf("%s\30", libcLocale);
+      printf("%s\30", argv[localeIndex]);
       continue;
     }
 
