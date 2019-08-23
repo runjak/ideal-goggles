@@ -5,6 +5,9 @@
   "repository": "https://github.com/github:runjak/ideal-goggles",
   "author": "Jakob Runge <sicarius@g4t3.de>",
   "license": "MIT",
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
     "glob": "^7.1.4",
     "lodash": "^4.17.15"

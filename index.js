@@ -76,7 +76,7 @@ function mergeMappings(icuMapping, glibcMapping) {
     glibc: glibcRest[key] || null,
   }));
 
-  const [partialLocales, completeLocales] = partition(locales, ({ icu, glibc }) => !icu || !glibc);
+  const [partialLocales, commonLocales] = partition(locales, ({ icu, glibc }) => !icu || !glibc);
   const [missingIcuLocales, missingGlibcLocales] = partition(partialLocales, ({ icu }) => !icu);
 
   return {
@@ -86,7 +86,7 @@ function mergeMappings(icuMapping, glibcMapping) {
     },
     missingIcuLocales,
     missingGlibcLocales,
-    completeLocales,
+    commonLocales,
   };
 }
 
@@ -94,10 +94,10 @@ function mergeMappings(icuMapping, glibcMapping) {
   const icu = await currrenciesIcu();
   const glibc = await currenciesGlibc();
 
-  const { empty: emptyMappings, missingIcuLocales, missingGlibcLocales, completeLocales } = mergeMappings(
+  const { empty: emptyMappings, missingIcuLocales, missingGlibcLocales, commonLocales } = mergeMappings(
     tableToMapping(outputToTable(icu)),
     tableToMapping(outputToTable(glibc)),
   );
 
-  console.log(completeLocales);
+  console.log(commonLocales);
 })();
