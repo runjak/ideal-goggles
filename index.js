@@ -5,6 +5,10 @@ const groupBy = require('lodash/groupBy');
 const mapValues = require('lodash/mapValues');
 const uniq = require('lodash/uniq');
 const partition = require('lodash/partition');
+const zip = require('lodash/zip');
+const every = require('lodash/every');
+const sortBy = require('lodash/sortBy');
+const pick = require('lodash/pick');
 
 const glibcLocalePattern = './glibc-install/share/i18n/locales/*';
 const glibcCall = './currencies/currencies-libc';
@@ -80,7 +84,7 @@ function mergeMappings(icuMapping, glibcMapping) {
   const [missingIcuLocales, missingGlibcLocales] = partition(partialLocales, ({ icu }) => !icu);
 
   return {
-    empty: {
+    emptyLocales: {
       icu: emptyIcuLocales || [],
       glibc: emptyGlibcLocales || [],
     },
@@ -90,14 +94,41 @@ function mergeMappings(icuMapping, glibcMapping) {
   };
 }
 
+function partitionEqualLocales(locales) {
+  const [equalKeys, unequalKeys] = partition(Object.keys(locales), (key) => {
+    const { icu, glibc } = locales[key];
+
+    return every(
+      zip(
+        sortBy(Object.entries(icu), ([key]) => key),
+        sortBy(Object.entries(glibc), ([key]) => key),
+      ),
+      ([[icuKey, icuValue], [glibcKey, glibcValue]]) => (icuKey === glibcKey && icuValue === glibcValue),
+    );
+  });
+
+  return [
+    pick(locales, equalKeys),
+    pick(locales, unequalKeys),
+  ];
+}
+
 (async () => {
   const icu = await currrenciesIcu();
   const glibc = await currenciesGlibc();
 
-  const { empty: emptyMappings, missingIcuLocales, missingGlibcLocales, commonLocales } = mergeMappings(
+  const {
+    emptyLocales,
+    missingIcuLocales,
+    missingGlibcLocales,
+    commonLocales,
+  } = mergeMappings(
     tableToMapping(outputToTable(icu)),
     tableToMapping(outputToTable(glibc)),
   );
 
-  console.log(commonLocales);
+  const [equalLocales, unequalLocales] = partitionEqualLocales(commonLocales);
+
+  console.log(unequalLocales);
+  console.log(Object.keys(unequalLocales).length);
 })();
