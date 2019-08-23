@@ -94,7 +94,7 @@ function mergeMappings(icuMapping, glibcMapping) {
   };
 }
 
-function partitionEqualLocales(locales) {
+function partitionLocalesBy(locales, predicate) {
   const [equalKeys, unequalKeys] = partition(Object.keys(locales), (key) => {
     const { icu, glibc } = locales[key];
 
@@ -103,7 +103,7 @@ function partitionEqualLocales(locales) {
         sortBy(Object.entries(icu), ([key]) => key),
         sortBy(Object.entries(glibc), ([key]) => key),
       ),
-      ([[icuKey, icuValue], [glibcKey, glibcValue]]) => (icuKey === glibcKey && icuValue === glibcValue),
+      predicate,
     );
   });
 
@@ -111,6 +111,13 @@ function partitionEqualLocales(locales) {
     pick(locales, equalKeys),
     pick(locales, unequalKeys),
   ];
+}
+
+function partitionEqualLocales(locales) {
+  return partitionLocalesBy(
+    locales,
+    ([[icuKey, icuValue], [glibcKey, glibcValue]]) => (icuKey === glibcKey && icuValue === glibcValue),
+  );
 }
 
 (async () => {
