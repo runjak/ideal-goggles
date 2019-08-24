@@ -8,7 +8,6 @@ import partition from 'lodash/partition';
 import zip from 'lodash/zip';
 import every from 'lodash/every';
 import sortBy from 'lodash/sortBy';
-import pick from 'lodash/pick';
 import concat from 'lodash/concat';
 
 const glibcLocalePattern = './glibc-install/share/i18n/locales/*';
