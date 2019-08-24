@@ -163,6 +163,18 @@ function partitionWhitespaceEqualLocales(locales: Array<CommonLocale>): [Array<C
   );
 }
 
+function partitionSameCharLocales(locales: Array<CommonLocale>): [Array<CommonLocale>, Array<CommonLocale>] {
+  return partitionLocalesByComparison(
+    locales,
+    (icuKey, icuValue, glibcKey, glibcValue) => {
+      const icuChars = Array.from(stripWhitespace(icuValue)).sort();
+      const glibcChars = Array.from(stripWhitespace(glibcValue)).sort();
+
+      return every(zip(icuChars, glibcChars), ([c1, c2]) => c1 === c2);
+    },
+  );
+}
+
 (async () => {
   const icu = await currrenciesIcu();
   const glibc = await currenciesGlibc();
@@ -176,7 +188,8 @@ function partitionWhitespaceEqualLocales(locales: Array<CommonLocale>): [Array<C
 
   const [equalLocales, unequalLocales] = partitionEqualLocales(commonLocales);
   const [equalWhitespaceLocales, unequalWhitespaceLocales] = partitionWhitespaceEqualLocales(unequalLocales);
+  const [sameCharLocales, differentCharLocales]= partitionSameCharLocales(unequalWhitespaceLocales);
 
-  console.log(unequalWhitespaceLocales);
-  console.log(Object.keys(unequalWhitespaceLocales).length);
+  console.log(differentCharLocales);
+  console.log(Object.keys(differentCharLocales).length);
 })();
