@@ -2,13 +2,6 @@ import glob from 'glob';
 import path from 'path';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import groupBy from 'lodash/groupBy';
-import mapValues from 'lodash/mapValues';
-import uniq from 'lodash/uniq';
-import partition from 'lodash/partition';
-import zip from 'lodash/zip';
-import every from 'lodash/every';
-import sortBy from 'lodash/sortBy';
-import concat from 'lodash/concat';
 
 const glibcLocalePattern = './glibc-install/share/i18n/locales/*';
 const glibcCall = './currencies/currencies-libc';
@@ -48,148 +41,170 @@ async function currrenciesIcu(): Promise<string> {
   return gatherOutput(spawn(icuCall, []));
 }
 
-type EmptyRow<T> = [T];
-type FormattedRow<T> = [T, T, T];
-type Row<T> = EmptyRow<T> | FormattedRow<T>;
-type Table<T> = Array<Row<T>>;
+type BaseRow = { locale: string, amount: string };
+type ComparisonRow<Comparison> = BaseRow & { icu: Comparison; glibc: Comparison };
+type MaybeCurrencyRow = ComparisonRow<string | null | undefined>;
+type CurrencyRow = ComparisonRow<string>;
+type Table<Row> = Array<Row>;
 
-function outputToTable(output: string): Table<string> {
-  // @ts-ignore we trust the structure of outputs
-  return output.split('\u0018').filter(line => line !== '').map((line) => line.split('\u0019'));
+function outputToTable(output: string, source: 'icu' | 'glibc'): Table<MaybeCurrencyRow> {
+  const fields = output.split('\u0018').filter(line => line !== '').map((line) => line.split('\u0019'));
+
+  return fields.map(([locale = '', amount = '', formatting]: Array<string>): MaybeCurrencyRow => ({
+    locale,
+    amount: amount,
+    icu: null,
+    glibc: null,
+    [source]: formatting,
+  }));
 }
 
-type Formatting = { [amount: string]: string };
-type LocaleFormattings = { [locale: string]: Formatting };
-type EmptyLocales = Array<string>;
-type FormattingsAndEmptys = [LocaleFormattings, EmptyLocales];
+function mergeTables(t1: Table<MaybeCurrencyRow>, t2: Table<MaybeCurrencyRow>): Table<MaybeCurrencyRow> {
+  const groupedTables = groupBy(
+    [...t1, ...t2],
+    ({ locale, amount }) => (`${locale}-${amount}`),
+  );
 
-function tableToMapping(table: Table<string>): FormattingsAndEmptys {
-  const [nonEmpty, empty] = partition(table, (row: Row<string>): row is FormattedRow<string> => row.length > 1);
-
-  const emptyLocales = concat([], ...empty);
-  // @ts-ignore - yeah the stuff below this isn't the cleanest
-  const localeFormattings: LocaleFormattings = mapValues(
-    groupBy(nonEmpty, ([locale]) => locale),
-    (localeRows: Array<FormattedRow<string>>): Formatting => Object.assign(
-      {},
-      ...localeRows.map(([locale, amount, formatted]: FormattedRow<string>) => ({ [amount]: formatted })),
+  return Object.values(groupedTables).map(
+    (tableGroup: Table<MaybeCurrencyRow>): MaybeCurrencyRow => tableGroup.reduce(
+      (
+        { icu: currentIcu, glibc: currentGlibc }: MaybeCurrencyRow,
+        { locale, amount, icu, glibc }: MaybeCurrencyRow,
+      ): MaybeCurrencyRow => ({
+        locale,
+        amount,
+        icu: icu || currentIcu,
+        glibc: glibc || currentGlibc,
+      }),
+      { locale: '', amount: '', icu: null, glibc: null },
     ),
   );
-
-  return [localeFormattings, emptyLocales];
 }
 
-type MergedLocale<T> = {
-  locale: string;
-  icu: T;
-  glibc: T;
-};
-type PartialLocale = MergedLocale<Formatting | null>;
-type CommonLocale = MergedLocale<Formatting>;
+function isCurrencyRow(row: MaybeCurrencyRow): row is CurrencyRow {
+  const { locale, amount, icu, glibc } = row;
 
-function isCommonLocale(locale: PartialLocale): locale is CommonLocale {
-  return Boolean(locale.icu && locale.glibc);
+  return Boolean(locale && amount && icu && glibc);
 }
 
-type MergedMappings = {
-  emptyLocales: {
-    icu: Array<string>;
-    glibc: Array<string>;
-  };
-  partialLocales: {
-    icu: Array<PartialLocale>;
-    glibc: Array<PartialLocale>;
-  };
-  commonLocales: Array<CommonLocale>;
-};
-
-function mergeMappings([icuRest, emptyIcuLocales]: FormattingsAndEmptys, [glibcRest, emptyGlibcLocales]: FormattingsAndEmptys): MergedMappings {
-  const locales = uniq([
-    ...Object.keys(icuRest),
-    ...Object.keys(glibcRest),
-  ]).map((key: string): PartialLocale => ({
-    locale: key,
-    icu: icuRest[key] || null,
-    glibc: glibcRest[key] || null,
-  }));
-
-  const [commonLocales, partialLocales] = partition(locales, isCommonLocale);
-  const [partialIcuLocales, partialGlibcLocales] = partition(partialLocales, ({ icu }) => !icu);
-
-  return {
-    emptyLocales: {
-      icu: emptyIcuLocales || [],
-      glibc: emptyGlibcLocales || [],
-    },
-    partialLocales: {
-      icu: partialIcuLocales,
-      glibc: partialGlibcLocales,
-    },
-    commonLocales,
-  };
+function filterEmptyRows(table: Table<MaybeCurrencyRow>): Table<MaybeCurrencyRow> {
+  return table.filter(row => !isCurrencyRow(row));
 }
 
-function partitionLocalesByComparison(
-  locales: Array<CommonLocale>,
-  compare: (icuAmount: string, icuFormatted: string, glibcAmount: string, glibcFormatted: string) => boolean,
-): [Array<CommonLocale>, Array<CommonLocale>] {
-  return partition(locales, ({ icu, glibc }: CommonLocale): boolean => {
-    const pairs = zip(
-      sortBy(Object.entries(icu), ([amount]) => amount),
-      sortBy(Object.entries(glibc), ([amount]) => amount),
-    );
-
-    return every(pairs, ([[icuAmount, icuFormatted], [glibcAmount, glibcFormatted]]) => compare(icuAmount, icuFormatted, glibcAmount, glibcFormatted));
-  });
+function filterComparableRows(table: Table<MaybeCurrencyRow>): Table<CurrencyRow> {
+  return table.filter(isCurrencyRow);
 }
 
-function partitionEqualLocales(locales: Array<CommonLocale>): [Array<CommonLocale>, Array<CommonLocale>] {
-  return partitionLocalesByComparison(
-    locales,
-    (icuKey, icuValue, glibcKey, glibcValue) => (icuKey === glibcKey && icuValue === glibcValue),
-  );
+function filterEqualFormattings(table: Table<CurrencyRow>): Table<CurrencyRow> {
+  return table.filter(({ icu, glibc }) => icu === glibc);
 }
 
 function stripWhitespace(s: string): string {
   return s.replace(/\s/g, '');
 }
 
-function partitionWhitespaceEqualLocales(locales: Array<CommonLocale>): [Array<CommonLocale>, Array<CommonLocale>] {
-  return partitionLocalesByComparison(
-    locales,
-    (icuKey, icuValue, glibcKey, glibcValue) => (
-      stripWhitespace(icuValue) === stripWhitespace(glibcValue)
-    ),
+function filterEqualWhitespace(table: Table<CurrencyRow>): Table<CurrencyRow> {
+  return table.filter(({ icu, glibc }) => stripWhitespace(icu) === stripWhitespace(glibc));
+}
+
+function filterDifferentWhitespace(table: Table<CurrencyRow>): Table<CurrencyRow> {
+  return table.filter(({ icu, glibc }) => stripWhitespace(icu) !== stripWhitespace(glibc));
+}
+
+function sortChars(s: string): string {
+  return Array.from(stripWhitespace(s)).sort().join('');
+}
+
+function filterSameChars(table: Table<CurrencyRow>): Table<CurrencyRow> {
+  return table.filter(({ icu, glibc }) => sortChars(icu) === sortChars(glibc));
+}
+
+type TableFilter = (table: Table<MaybeCurrencyRow>) => Table<MaybeCurrencyRow>;
+
+const filters: { [name: string]: TableFilter } = {
+  empty: filterEmptyRows,
+  comparable: filterComparableRows,
+  equal: (table) => filterEqualFormattings(filterComparableRows(table)),
+  whitespace: (table) => filterEqualWhitespace(filterComparableRows(table)),
+  chars: (table) => filterSameChars(filterDifferentWhitespace(filterComparableRows(table))),
+};
+
+type Args = {
+  filter: TableFilter | null;
+  helpWanted: boolean;
+  prettyPrint: boolean;
+};
+
+const defaultArgs: Args = {
+  filter: null,
+  helpWanted: false,
+  prettyPrint: false,
+};
+
+const helpParameters = ['-h', '--help', '-help', 'help'];
+
+function parseArgs(argv: Array<string>): Args {
+  return argv.reduce(
+    (args: Args, arg: string): Args => {
+      if (Object.keys(filters).includes(arg)) {
+        return {
+          ...args,
+          filter: filters[arg],
+        };
+      } else if (arg === 'prettyPrint') {
+        return {
+          ...args,
+          prettyPrint: true,
+        };
+      } else if(helpParameters.includes(arg)) {
+        return {
+          ...args,
+          helpWanted: true,
+        };
+      } else {
+        return args;
+      }
+    },
+    defaultArgs,
   );
 }
 
-function partitionSameCharLocales(locales: Array<CommonLocale>): [Array<CommonLocale>, Array<CommonLocale>] {
-  return partitionLocalesByComparison(
-    locales,
-    (icuKey, icuValue, glibcKey, glibcValue) => {
-      const icuChars = Array.from(stripWhitespace(icuValue)).sort();
-      const glibcChars = Array.from(stripWhitespace(glibcValue)).sort();
+function printHelp() {
+  console.log([
+    'ideal-goggles - https://github.com/runjak/ideal-goggles',
+    '-------------------------------------------------------',
+    '',
+    'specify a filter with one of theses parameters:',
+    Object.keys(filters).join(', '),
+    '',
+    'activate prettyPrint with the `prettyPrint` parameter.'
+  ].join('\n'));
+}
 
-      return every(zip(icuChars, glibcChars), ([c1, c2]) => c1 === c2);
-    },
-  );
+function printTable(table: Table<MaybeCurrencyRow>, prettyPrint: boolean) {
+  if (prettyPrint) {
+    console.table(table.slice(400));
+  } else {
+    console.log(JSON.stringify(table, undefined, 2));
+  }
 }
 
 (async () => {
-  const icu = await currrenciesIcu();
-  const glibc = await currenciesGlibc();
+  const { filter, helpWanted, prettyPrint } = parseArgs(process.argv);
 
-  const {
-    commonLocales,
-  } = mergeMappings(
-    tableToMapping(outputToTable(icu)),
-    tableToMapping(outputToTable(glibc)),
-  );
+  if (helpWanted || !filter) {
+    printHelp();
+  } else {
+    const icu = await currrenciesIcu();
+    const glibc = await currenciesGlibc();
 
-  const [equalLocales, unequalLocales] = partitionEqualLocales(commonLocales);
-  const [equalWhitespaceLocales, unequalWhitespaceLocales] = partitionWhitespaceEqualLocales(unequalLocales);
-  const [sameCharLocales, differentCharLocales]= partitionSameCharLocales(unequalWhitespaceLocales);
+    const table = mergeTables(
+      outputToTable(icu, 'icu'),
+      outputToTable(glibc, 'glibc'),
+    );
 
-  console.log(differentCharLocales);
-  console.log(Object.keys(differentCharLocales).length);
+    const filteredTable = filter(table);
+
+    printTable(filter(table), prettyPrint);
+  }
 })();
