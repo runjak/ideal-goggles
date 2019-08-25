@@ -8,7 +8,15 @@
   "scripts": {
     "start": "ts-node index.ts",
     "typecheck": "tsc --noEmit --esModuleInterop --downlevelIteration index.ts",
-    "typecheck:watch": "yarn typecheck -w"
+    "typecheck:watch": "yarn typecheck -w",
+    "build": "yarn run build:dependencies && yarn run build:currencies",
+    "build:dependencies": "yarn run build:glibc && yarn build:icu && yarn build:glibc-locales",
+    "build:glibc": "./build-glibc.sh",
+    "build:glibc-locales": "./build-glibc-locales.sh",
+    "build:icu": "./build-icu.sh",
+    "build:currencies": "yarn run build:currencies-icu && yarn run build:currencies-libc",
+    "build:currencies-icu": "cd currencies; ./build-currencies-icu.sh; cd ..",
+    "build:currencies-libc": "cd currencies; ./build-currencies-libc.sh; cd .."
   },
   "dependencies": {
     "@types/glob": "^7.1.1",
