@@ -114,6 +114,10 @@ function filterEqualFormattings(table: Table<CurrencyRow>): Table<CurrencyRow> {
   return table.filter(({ icu, glibc }) => icu === glibc);
 }
 
+function filterDifferentFormattings(table: Table<CurrencyRow>): Table<CurrencyRow> {
+  return table.filter(({ icu, glibc }) => icu !== glibc);
+}
+
 function stripWhitespace(s: string): string {
   return s.replace(/\s/g, '');
 }
@@ -145,7 +149,7 @@ const filters: { [name: string]: TableFilter } = {
   empty: filterEmptyRows,
   comparable: filterComparableRows,
   equal: (table) => filterEqualFormattings(filterComparableRows(table)),
-  whitespace: (table) => filterEqualWhitespace(filterComparableRows(table)),
+  whitespace: (table) => filterEqualWhitespace(filterDifferentFormattings(filterComparableRows(table))),
   sameChars: (table) => filterSameChars(filterDifferentWhitespace(filterComparableRows(table))),
   differentChars: (table) => filterDifferentChars(filterDifferentWhitespace(filterComparableRows(table))),
 };
