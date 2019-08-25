@@ -119,6 +119,10 @@ function filterSameChars(table: Table<CurrencyRow>): Table<CurrencyRow> {
   return table.filter(({ icu, glibc }) => sortChars(icu) === sortChars(glibc));
 }
 
+function filterDifferentChars(table: Table<CurrencyRow>): Table<CurrencyRow> {
+  return table.filter(({ icu, glibc }) => sortChars(icu) !== sortChars(glibc));
+}
+
 type TableFilter = (table: Table<MaybeCurrencyRow>) => Table<MaybeCurrencyRow>;
 
 const filters: { [name: string]: TableFilter } = {
@@ -126,7 +130,8 @@ const filters: { [name: string]: TableFilter } = {
   comparable: filterComparableRows,
   equal: (table) => filterEqualFormattings(filterComparableRows(table)),
   whitespace: (table) => filterEqualWhitespace(filterComparableRows(table)),
-  chars: (table) => filterSameChars(filterDifferentWhitespace(filterComparableRows(table))),
+  sameChars: (table) => filterSameChars(filterDifferentWhitespace(filterComparableRows(table))),
+  differentChars: (table) => filterDifferentChars(filterDifferentWhitespace(filterComparableRows(table))),
 };
 
 type Args = {
