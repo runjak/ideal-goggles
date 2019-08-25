@@ -1,7 +1,10 @@
 import glob from 'glob';
 import path from 'path';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
+import levenshtein from 'fast-levenshtein';
 import groupBy from 'lodash/groupBy';
+import sortBy from 'lodash/sortBy';
+import identity from 'lodash/identity';
 
 const glibcLocalePattern = './glibc-install/share/i18n/locales/*';
 const glibcCall = './currencies/currencies-libc';
@@ -59,13 +62,23 @@ function outputToTable(output: string, source: 'icu' | 'glibc'): Table<MaybeCurr
   }));
 }
 
+function sortTable(table: Table<MaybeCurrencyRow>): Table<MaybeCurrencyRow> {
+  return sortBy(table, ({ icu, glibc }: MaybeCurrencyRow): number => {
+    if (!icu || !glibc) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    return levenshtein.get(icu, glibc);
+  });
+}
+
 function mergeTables(t1: Table<MaybeCurrencyRow>, t2: Table<MaybeCurrencyRow>): Table<MaybeCurrencyRow> {
   const groupedTables = groupBy(
     [...t1, ...t2],
     ({ locale, amount }) => (`${locale}-${amount}`),
   );
 
-  return Object.values(groupedTables).map(
+  const table = Object.values(groupedTables).map(
     (tableGroup: Table<MaybeCurrencyRow>): MaybeCurrencyRow => tableGroup.reduce(
       (
         { icu: currentIcu, glibc: currentGlibc }: MaybeCurrencyRow,
@@ -79,6 +92,8 @@ function mergeTables(t1: Table<MaybeCurrencyRow>, t2: Table<MaybeCurrencyRow>): 
       { locale: '', amount: '', icu: null, glibc: null },
     ),
   );
+
+  return sortTable(table);
 }
 
 function isCurrencyRow(row: MaybeCurrencyRow): row is CurrencyRow {
@@ -126,6 +141,7 @@ function filterDifferentChars(table: Table<CurrencyRow>): Table<CurrencyRow> {
 type TableFilter = (table: Table<MaybeCurrencyRow>) => Table<MaybeCurrencyRow>;
 
 const filters: { [name: string]: TableFilter } = {
+  all: identity,
   empty: filterEmptyRows,
   comparable: filterComparableRows,
   equal: (table) => filterEqualFormattings(filterComparableRows(table)),
@@ -137,16 +153,19 @@ const filters: { [name: string]: TableFilter } = {
 type Args = {
   filter: TableFilter | null;
   helpWanted: boolean;
-  prettyPrint: boolean;
+  json: boolean;
 };
 
 const defaultArgs: Args = {
   filter: null,
   helpWanted: false,
-  prettyPrint: false,
+  json: false,
 };
 
-const helpParameters = ['-h', '--help', '-help', 'help'];
+const parameters = {
+  helpParameters: ['-h', '--help', '-help', 'help'],
+  json: 'json',
+};
 
 function parseArgs(argv: Array<string>): Args {
   return argv.reduce(
@@ -156,12 +175,12 @@ function parseArgs(argv: Array<string>): Args {
           ...args,
           filter: filters[arg],
         };
-      } else if (arg === 'prettyPrint') {
+      } else if (arg === parameters.json) {
         return {
           ...args,
-          prettyPrint: true,
+          json: true,
         };
-      } else if(helpParameters.includes(arg)) {
+      } else if (parameters.helpParameters.includes(arg)) {
         return {
           ...args,
           helpWanted: true,
@@ -182,20 +201,20 @@ function printHelp() {
     'specify a filter with one of theses parameters:',
     Object.keys(filters).join(', '),
     '',
-    'activate prettyPrint with the `prettyPrint` parameter.'
+    `activate json output with the ${parameters.json} parameter.`
   ].join('\n'));
 }
 
-function printTable(table: Table<MaybeCurrencyRow>, prettyPrint: boolean) {
-  if (prettyPrint) {
-    console.table(table.slice(400));
-  } else {
+function printTable(table: Table<MaybeCurrencyRow>, json: boolean) {
+  if (json) {
     console.log(JSON.stringify(table, undefined, 2));
+  } else {
+    console.table(table);
   }
 }
 
 (async () => {
-  const { filter, helpWanted, prettyPrint } = parseArgs(process.argv);
+  const { filter, helpWanted, json } = parseArgs(process.argv);
 
   if (helpWanted || !filter) {
     printHelp();
@@ -208,8 +227,6 @@ function printTable(table: Table<MaybeCurrencyRow>, prettyPrint: boolean) {
       outputToTable(glibc, 'glibc'),
     );
 
-    const filteredTable = filter(table);
-
-    printTable(filter(table), prettyPrint);
+    printTable(filter(table), json);
   }
 })();
