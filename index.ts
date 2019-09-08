@@ -14,7 +14,6 @@ const icuCall = './currencies/currencies-icu';
 const outputDirectory = './output/';
 const outputPrefix = '2019-09-08';
 const outputNames = {
-  comparable: 'comparable',
   equal: 'equal',
   whitespace: 'whitespace',
   sameChars: 'same-chars',
@@ -305,11 +304,6 @@ function createGenerateLocaleReport(
   const [sameChars, differentChars] = partitionSameChars(differentWhitespace);
 
   const comparisonTables = [
-    {
-      headline: 'Comparable entries:',
-      table,
-      name: outputNames.comparable,
-    },
     {
       headline: 'Equal entries:',
       table: equalFormattings,
