@@ -13,21 +13,25 @@ const icuCall = './currencies/currencies-icu';
 async function glibcLocales(): Promise<Array<string>> {
   return new Promise((resolve, reject) => {
     glob(glibcLocalePattern, (error, matches) => {
-      error ? reject(error) : resolve(matches.map((match) => path.basename(match)));
+      error
+        ? reject(error)
+        : resolve(matches.map(match => path.basename(match)));
     });
   });
 }
 
-async function gatherOutput(process: ChildProcessWithoutNullStreams): Promise<string> {
+async function gatherOutput(
+  process: ChildProcessWithoutNullStreams,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     let output = '';
 
-    process.stdout.on('data', (data) => {
+    process.stdout.on('data', data => {
       output += data;
     });
 
-    process.on('close', (code) => {
-      (code !== 0) ? reject(code) : resolve(output);
+    process.on('close', code => {
+      code !== 0 ? reject(code) : resolve(output);
     });
 
     process.on('error', reject);
@@ -44,22 +48,35 @@ async function currrenciesIcu(): Promise<string> {
   return gatherOutput(spawn(icuCall, []));
 }
 
-type BaseRow = { locale: string, amount: string };
-type ComparisonRow<Comparison> = BaseRow & { icu: Comparison; glibc: Comparison };
+type BaseRow = { locale: string; amount: string };
+type ComparisonRow<Comparison> = BaseRow & {
+  icu: Comparison;
+  glibc: Comparison;
+};
 type MaybeCurrencyRow = ComparisonRow<string | null | undefined>;
 type CurrencyRow = ComparisonRow<string>;
 type Table<Row> = Array<Row>;
 
-function outputToTable(output: string, source: 'icu' | 'glibc'): Table<MaybeCurrencyRow> {
-  const fields = output.split('\u0018').filter(line => line !== '').map((line) => line.split('\u0019'));
+function outputToTable(
+  output: string,
+  source: 'icu' | 'glibc',
+): Table<MaybeCurrencyRow> {
+  const fields = output
+    .split('\u0018')
+    .filter(line => line !== '')
+    .map(line => line.split('\u0019'));
 
-  return fields.map(([locale = '', amount = '', formatting]: Array<string>): MaybeCurrencyRow => ({
-    locale,
-    amount: amount,
-    icu: null,
-    glibc: null,
-    [source]: formatting,
-  }));
+  return fields.map(
+    ([locale = '', amount = '', formatting]: Array<
+      string
+    >): MaybeCurrencyRow => ({
+      locale,
+      amount: amount,
+      icu: null,
+      glibc: null,
+      [source]: formatting,
+    }),
+  );
 }
 
 function sortTable(table: Table<MaybeCurrencyRow>): Table<MaybeCurrencyRow> {
@@ -72,25 +89,29 @@ function sortTable(table: Table<MaybeCurrencyRow>): Table<MaybeCurrencyRow> {
   });
 }
 
-function mergeTables(t1: Table<MaybeCurrencyRow>, t2: Table<MaybeCurrencyRow>): Table<MaybeCurrencyRow> {
+function mergeTables(
+  t1: Table<MaybeCurrencyRow>,
+  t2: Table<MaybeCurrencyRow>,
+): Table<MaybeCurrencyRow> {
   const groupedTables = groupBy(
     [...t1, ...t2],
-    ({ locale, amount }) => (`${locale}-${amount}`),
+    ({ locale, amount }) => `${locale}-${amount}`,
   );
 
   const table = Object.values(groupedTables).map(
-    (tableGroup: Table<MaybeCurrencyRow>): MaybeCurrencyRow => tableGroup.reduce(
-      (
-        { icu: currentIcu, glibc: currentGlibc }: MaybeCurrencyRow,
-        { locale, amount, icu, glibc }: MaybeCurrencyRow,
-      ): MaybeCurrencyRow => ({
-        locale,
-        amount,
-        icu: icu || currentIcu,
-        glibc: glibc || currentGlibc,
-      }),
-      { locale: '', amount: '', icu: null, glibc: null },
-    ),
+    (tableGroup: Table<MaybeCurrencyRow>): MaybeCurrencyRow =>
+      tableGroup.reduce(
+        (
+          { icu: currentIcu, glibc: currentGlibc }: MaybeCurrencyRow,
+          { locale, amount, icu, glibc }: MaybeCurrencyRow,
+        ): MaybeCurrencyRow => ({
+          locale,
+          amount,
+          icu: icu || currentIcu,
+          glibc: glibc || currentGlibc,
+        }),
+        { locale: '', amount: '', icu: null, glibc: null },
+      ),
   );
 
   return sortTable(table);
@@ -102,11 +123,15 @@ function isCurrencyRow(row: MaybeCurrencyRow): row is CurrencyRow {
   return Boolean(locale && amount && icu && glibc);
 }
 
-function filterEmptyRows(table: Table<MaybeCurrencyRow>): Table<MaybeCurrencyRow> {
+function filterEmptyRows(
+  table: Table<MaybeCurrencyRow>,
+): Table<MaybeCurrencyRow> {
   return table.filter(row => !isCurrencyRow(row));
 }
 
-function filterComparableRows(table: Table<MaybeCurrencyRow>): Table<CurrencyRow> {
+function filterComparableRows(
+  table: Table<MaybeCurrencyRow>,
+): Table<CurrencyRow> {
   return table.filter(isCurrencyRow);
 }
 
@@ -114,7 +139,9 @@ function filterEqualFormattings(table: Table<CurrencyRow>): Table<CurrencyRow> {
   return table.filter(({ icu, glibc }) => icu === glibc);
 }
 
-function filterDifferentFormattings(table: Table<CurrencyRow>): Table<CurrencyRow> {
+function filterDifferentFormattings(
+  table: Table<CurrencyRow>,
+): Table<CurrencyRow> {
   return table.filter(({ icu, glibc }) => icu !== glibc);
 }
 
@@ -123,15 +150,23 @@ function stripWhitespace(s: string): string {
 }
 
 function filterEqualWhitespace(table: Table<CurrencyRow>): Table<CurrencyRow> {
-  return table.filter(({ icu, glibc }) => stripWhitespace(icu) === stripWhitespace(glibc));
+  return table.filter(
+    ({ icu, glibc }) => stripWhitespace(icu) === stripWhitespace(glibc),
+  );
 }
 
-function filterDifferentWhitespace(table: Table<CurrencyRow>): Table<CurrencyRow> {
-  return table.filter(({ icu, glibc }) => stripWhitespace(icu) !== stripWhitespace(glibc));
+function filterDifferentWhitespace(
+  table: Table<CurrencyRow>,
+): Table<CurrencyRow> {
+  return table.filter(
+    ({ icu, glibc }) => stripWhitespace(icu) !== stripWhitespace(glibc),
+  );
 }
 
 function sortChars(s: string): string {
-  return Array.from(stripWhitespace(s)).sort().join('');
+  return Array.from(stripWhitespace(s))
+    .sort()
+    .join('');
 }
 
 function filterSameChars(table: Table<CurrencyRow>): Table<CurrencyRow> {
@@ -148,10 +183,17 @@ const filters: { [name: string]: TableFilter } = {
   all: identity,
   empty: filterEmptyRows,
   comparable: filterComparableRows,
-  equal: (table) => filterEqualFormattings(filterComparableRows(table)),
-  whitespace: (table) => filterEqualWhitespace(filterDifferentFormattings(filterComparableRows(table))),
-  sameChars: (table) => filterSameChars(filterDifferentWhitespace(filterComparableRows(table))),
-  differentChars: (table) => filterDifferentChars(filterDifferentWhitespace(filterComparableRows(table))),
+  equal: table => filterEqualFormattings(filterComparableRows(table)),
+  whitespace: table =>
+    filterEqualWhitespace(
+      filterDifferentFormattings(filterComparableRows(table)),
+    ),
+  sameChars: table =>
+    filterSameChars(filterDifferentWhitespace(filterComparableRows(table))),
+  differentChars: table =>
+    filterDifferentChars(
+      filterDifferentWhitespace(filterComparableRows(table)),
+    ),
 };
 
 type Args = {
@@ -172,41 +214,40 @@ const parameters = {
 };
 
 function parseArgs(argv: Array<string>): Args {
-  return argv.reduce(
-    (args: Args, arg: string): Args => {
-      if (Object.keys(filters).includes(arg)) {
-        return {
-          ...args,
-          filter: filters[arg],
-        };
-      } else if (arg === parameters.json) {
-        return {
-          ...args,
-          json: true,
-        };
-      } else if (parameters.helpParameters.includes(arg)) {
-        return {
-          ...args,
-          helpWanted: true,
-        };
-      } else {
-        return args;
-      }
-    },
-    defaultArgs,
-  );
+  return argv.reduce((args: Args, arg: string): Args => {
+    if (Object.keys(filters).includes(arg)) {
+      return {
+        ...args,
+        filter: filters[arg],
+      };
+    } else if (arg === parameters.json) {
+      return {
+        ...args,
+        json: true,
+      };
+    } else if (parameters.helpParameters.includes(arg)) {
+      return {
+        ...args,
+        helpWanted: true,
+      };
+    } else {
+      return args;
+    }
+  }, defaultArgs);
 }
 
 function printHelp() {
-  console.log([
-    'ideal-goggles - https://github.com/runjak/ideal-goggles',
-    '-------------------------------------------------------',
-    '',
-    'specify a filter with one of theses parameters:',
-    Object.keys(filters).join(', '),
-    '',
-    `activate json output with the ${parameters.json} parameter.`
-  ].join('\n'));
+  console.log(
+    [
+      'ideal-goggles - https://github.com/runjak/ideal-goggles',
+      '-------------------------------------------------------',
+      '',
+      'specify a filter with one of theses parameters:',
+      Object.keys(filters).join(', '),
+      '',
+      `activate json output with the ${parameters.json} parameter.`,
+    ].join('\n'),
+  );
 }
 
 function printTable(table: Table<MaybeCurrencyRow>, json: boolean) {
