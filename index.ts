@@ -100,12 +100,15 @@ function outputToTable(
 }
 
 function sortTable(table: Table<MaybeCurrencyRow>): Table<MaybeCurrencyRow> {
-  return sortBy(table, ({ icu, glibc }: MaybeCurrencyRow): number => {
+  return sortBy(table, ({ locale, icu, glibc }: MaybeCurrencyRow): [
+    string,
+    number,
+  ] => {
     if (!icu || !glibc) {
-      return Number.POSITIVE_INFINITY;
+      return [locale, Number.POSITIVE_INFINITY];
     }
 
-    return levenshtein.get(icu, glibc);
+    return [locale, levenshtein.get(icu, glibc)];
   });
 }
 
