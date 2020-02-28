@@ -21,14 +21,14 @@
   "dependencies": {
     "@types/glob": "^7.1.1",
     "fast-levenshtein": "^2.0.6",
-    "glob": "^7.1.4",
+    "glob": "^7.1.6",
     "lodash": "^4.17.15"
   },
   "devDependencies": {
     "@types/fast-levenshtein": "^0.0.1",
-    "@types/lodash": "^4.14.137",
-    "@types/node": "^12.7.2",
-    "ts-node": "^8.3.0",
-    "typescript": "^3.5.3"
+    "@types/lodash": "^4.14.149",
+    "@types/node": "^13.7.7",
+    "ts-node": "^8.6.2",
+    "typescript": "^3.8.3"
   }
 }
