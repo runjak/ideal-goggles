@@ -12,7 +12,7 @@ const glibcLocalePattern = './glibc-install/share/i18n/locales/*';
 const glibcCall = './currencies/currencies-libc';
 const icuCall = './currencies/currencies-icu';
 const outputDirectory = './output/';
-const outputPrefix = '2019-09-08';
+const outputPrefix = '2020-02-29';
 const outputNames = {
   equal: 'equal',
   whitespace: 'whitespace',
