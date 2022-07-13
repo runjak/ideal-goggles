@@ -6,7 +6,7 @@ LDSO=($PWD/../glibc-install/lib/ld*.so)
 clang \
   -nodefaultlibs -nostdinc \
   -I../glibc-install/include \
-  -I/usr/lib/clang/9.0.1/include \
+  -I/usr/lib/clang/14/include \
   -L../glibc-install/lib \
   -Wl,-rpath='$ORIGIN'/../glibc-install/lib \
   -lc \
