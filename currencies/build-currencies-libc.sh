@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ue
 
-LDSO=($PWD/../glibc-install/lib/ld*.so)
+LDSO=($PWD/../glibc-install/lib/ld*.so*)
 
 clang \
   -nodefaultlibs -nostdinc \
