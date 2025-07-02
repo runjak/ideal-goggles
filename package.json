@@ -6,7 +6,7 @@
   "author": "Fiona Runge <sicarius@g4t3.de>",
   "license": "MIT",
   "scripts": {
-    "start": "ts-node index.ts",
+    "start": "node index.ts",
     "typecheck": "tsc --noEmit --esModuleInterop --downlevelIteration index.ts",
     "typecheck:watch": "npm typecheck -w",
     "build": "npm run build:dependencies && npm run build:currencies",
@@ -28,7 +28,6 @@
     "@types/fast-levenshtein": "^0.0.1",
     "@types/lodash": "^4.14.149",
     "@types/node": "^13.7.7",
-    "ts-node": "^8.6.2",
     "typescript": "^3.8.3"
   }
 }
