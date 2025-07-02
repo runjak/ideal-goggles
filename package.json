@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "repository": "https://github.com/github:runjak/ideal-goggles",
-  "author": "Jakob Runge <sicarius@g4t3.de>",
+  "author": "Fiona Runge <sicarius@g4t3.de>",
   "license": "MIT",
   "scripts": {
     "start": "ts-node index.ts",
