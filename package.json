@@ -8,13 +8,13 @@
   "scripts": {
     "start": "ts-node index.ts",
     "typecheck": "tsc --noEmit --esModuleInterop --downlevelIteration index.ts",
-    "typecheck:watch": "yarn typecheck -w",
-    "build": "yarn run build:dependencies && yarn run build:currencies",
-    "build:dependencies": "yarn run build:glibc && yarn build:icu && yarn build:glibc-locales",
+    "typecheck:watch": "npm typecheck -w",
+    "build": "npm run build:dependencies && npm run build:currencies",
+    "build:dependencies": "npm run build:glibc && npm build:icu && npm build:glibc-locales",
     "build:glibc": "./build-glibc.sh",
     "build:glibc-locales": "./build-glibc-locales.sh",
     "build:icu": "./build-icu.sh",
-    "build:currencies": "yarn run build:currencies-icu && yarn run build:currencies-libc",
+    "build:currencies": "npm run build:currencies-icu && npm run build:currencies-libc",
     "build:currencies-icu": "cd currencies; ./build-currencies-icu.sh; cd ..",
     "build:currencies-libc": "cd currencies; ./build-currencies-libc.sh; cd .."
   },
