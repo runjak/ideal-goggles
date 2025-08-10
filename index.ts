@@ -1,24 +1,24 @@
-import glob from 'glob';
-import path from 'path';
-import fs from 'fs';
-import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
-import levenshtein from 'fast-levenshtein';
-import groupBy from 'lodash/groupBy';
-import sortBy from 'lodash/sortBy';
-import partition from 'lodash/partition';
-import uniq from 'lodash/uniq';
+import glob from "glob";
+import path from "path";
+import fs from "fs";
+import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
+import levenshtein from "fast-levenshtein";
+import groupBy from "lodash/groupBy.js";
+import sortBy from "lodash/sortBy.js";
+import partition from "lodash/partition.js";
+import uniq from "lodash/uniq.js";
 
-const glibcLocalePattern = './glibc-install/share/i18n/locales/*';
-const glibcCall = './currencies/currencies-libc';
-const icuCall = './currencies/currencies-icu';
-const outputDirectory = './output/';
-const outputPrefix = '2022-07-18';
+const glibcLocalePattern = "./glibc-install/share/i18n/locales/*";
+const glibcCall = "./currencies/currencies-libc";
+const icuCall = "./currencies/currencies-icu";
+const outputDirectory = "./output/";
+const outputPrefix = "2022-07-18";
 const outputNames = {
-  equal: 'equal',
-  whitespace: 'whitespace',
-  sameChars: 'same-chars',
-  different: 'different',
-  localeOverview: 'locale-overview',
+  equal: "equal",
+  whitespace: "whitespace",
+  sameChars: "same-chars",
+  different: "different",
+  localeOverview: "locale-overview",
 };
 
 function outputPath(name: string): string {
@@ -34,26 +34,26 @@ async function glibcLocales(): Promise<Array<string>> {
     glob(glibcLocalePattern, (error, matches) => {
       error
         ? reject(error)
-        : resolve(matches.map(match => path.basename(match)));
+        : resolve(matches.map((match) => path.basename(match)));
     });
   });
 }
 
 async function gatherOutput(
-  process: ChildProcessWithoutNullStreams,
+  process: ChildProcessWithoutNullStreams
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    let output = '';
+    let output = "";
 
-    process.stdout.on('data', data => {
+    process.stdout.on("data", (data) => {
       output += data;
     });
 
-    process.on('close', code => {
+    process.on("close", (code) => {
       code !== 0 ? reject(code) : resolve(output);
     });
 
-    process.on('error', reject);
+    process.on("error", reject);
   });
 }
 
@@ -78,46 +78,48 @@ type Table<Row> = Array<Row>;
 
 function outputToTable(
   output: string,
-  source: 'icu' | 'glibc',
+  source: "icu" | "glibc"
 ): Table<MaybeCurrencyRow> {
   const fields = output
-    .split('\u0018')
-    .filter(line => line !== '')
-    .map(line => line.split('\u0019'));
+    .split("\u0018")
+    .filter((line) => line !== "")
+    .map((line) => line.split("\u0019"));
 
   return fields.map(
-    ([locale = '', amount = '', formatting]: Array<
-      string
-    >): MaybeCurrencyRow => ({
+    ([
+      locale = "",
+      amount = "",
+      formatting,
+    ]: Array<string>): MaybeCurrencyRow => ({
       locale,
       amount: amount,
       icu: null,
       glibc: null,
       [source]: formatting,
-    }),
+    })
   );
 }
 
 function sortTable(table: Table<MaybeCurrencyRow>): Table<MaybeCurrencyRow> {
-  return sortBy(table, ({ locale, icu, glibc }: MaybeCurrencyRow): [
-    string,
-    number,
-  ] => {
-    if (!icu || !glibc) {
-      return [locale, Number.POSITIVE_INFINITY];
-    }
+  return sortBy(
+    table,
+    ({ locale, icu, glibc }: MaybeCurrencyRow): [string, number] => {
+      if (!icu || !glibc) {
+        return [locale, Number.POSITIVE_INFINITY];
+      }
 
-    return [locale, levenshtein.get(icu, glibc)];
-  });
+      return [locale, levenshtein.get(icu, glibc)];
+    }
+  );
 }
 
 function mergeTables(
   t1: Table<MaybeCurrencyRow>,
-  t2: Table<MaybeCurrencyRow>,
+  t2: Table<MaybeCurrencyRow>
 ): Table<MaybeCurrencyRow> {
   const groupedTables = groupBy(
     [...t1, ...t2],
-    ({ locale, amount }) => `${locale}-${amount}`,
+    ({ locale, amount }) => `${locale}-${amount}`
   );
 
   const table = Object.values(groupedTables).map(
@@ -125,15 +127,15 @@ function mergeTables(
       tableGroup.reduce(
         (
           { icu: currentIcu, glibc: currentGlibc }: MaybeCurrencyRow,
-          { locale, amount, icu, glibc }: MaybeCurrencyRow,
+          { locale, amount, icu, glibc }: MaybeCurrencyRow
         ): MaybeCurrencyRow => ({
           locale,
           amount,
           icu: icu || currentIcu,
           glibc: glibc || currentGlibc,
         }),
-        { locale: '', amount: '', icu: null, glibc: null },
-      ),
+        { locale: "", amount: "", icu: null, glibc: null }
+      )
   );
 
   return sortTable(table);
@@ -146,42 +148,40 @@ function isCurrencyRow(row: MaybeCurrencyRow): row is CurrencyRow {
 }
 
 function filterComparableRows(
-  table: Table<MaybeCurrencyRow>,
+  table: Table<MaybeCurrencyRow>
 ): Table<CurrencyRow> {
   return table.filter(isCurrencyRow);
 }
 
 function partitionEqualFormattings(
-  table: Table<CurrencyRow>,
+  table: Table<CurrencyRow>
 ): [Table<CurrencyRow>, Table<CurrencyRow>] {
   return partition(table, ({ icu, glibc }) => icu === glibc);
 }
 
 function stripWhitespace(s: string): string {
-  return s.replace(/\s/g, '');
+  return s.replace(/\s/g, "");
 }
 
 function partitionEqualWhitespace(
-  table: Table<CurrencyRow>,
+  table: Table<CurrencyRow>
 ): [Table<CurrencyRow>, Table<CurrencyRow>] {
   return partition(
     table,
-    ({ icu, glibc }) => stripWhitespace(icu) === stripWhitespace(glibc),
+    ({ icu, glibc }) => stripWhitespace(icu) === stripWhitespace(glibc)
   );
 }
 
 function sortChars(s: string): string {
-  return Array.from(stripWhitespace(s))
-    .sort()
-    .join('');
+  return Array.from(stripWhitespace(s)).sort().join("");
 }
 
 function partitionSameChars(
-  table: Table<CurrencyRow>,
+  table: Table<CurrencyRow>
 ): [Table<CurrencyRow>, Table<CurrencyRow>] {
   return partition(
     table,
-    ({ icu, glibc }) => sortChars(icu) === sortChars(glibc),
+    ({ icu, glibc }) => sortChars(icu) === sortChars(glibc)
   );
 }
 
@@ -190,8 +190,8 @@ async function comparisonTable(): Promise<Table<CurrencyRow>> {
   const glibc = await currenciesGlibc();
 
   const table = mergeTables(
-    outputToTable(icu, 'icu'),
-    outputToTable(glibc, 'glibc'),
+    outputToTable(icu, "icu"),
+    outputToTable(glibc, "glibc")
   );
 
   return filterComparableRows(table);
@@ -199,18 +199,18 @@ async function comparisonTable(): Promise<Table<CurrencyRow>> {
 
 function markdownTable(table: Table<CurrencyRow>): string {
   return [
-    'index | locale | amount | icu | glibc',
-    '----- | ------ | ------ | --- | -----',
+    "index | locale | amount | icu | glibc",
+    "----- | ------ | ------ | --- | -----",
     ...table.map(
       ({ locale, amount, icu, glibc }: CurrencyRow, index: number): string =>
-        `${index} | [${locale}](${outputPrefix}-${locale}) | \`${amount}\` | \`${icu}\` | \`${glibc}\``,
+        `${index} | [${locale}](${outputPrefix}-${locale}) | \`${amount}\` | \`${icu}\` | \`${glibc}\``
     ),
-    '',
-  ].join('\n');
+    "",
+  ].join("\n");
 }
 
 function markdownHeadline(headline: string): string {
-  return [headline, '===', ''].join('\n');
+  return [headline, "===", ""].join("\n");
 }
 
 function localesFromTable(table: Table<CurrencyRow>): Array<string> {
@@ -218,7 +218,7 @@ function localesFromTable(table: Table<CurrencyRow>): Array<string> {
 }
 
 function checkmark(good: boolean): string {
-  return good ? ':heavy_check_mark:' : ':x:';
+  return good ? ":heavy_check_mark:" : ":x:";
 }
 
 function markdownCompatibilityTable(
@@ -226,18 +226,18 @@ function markdownCompatibilityTable(
   equalFormattingLocales: Array<string>,
   equalWhitespaceLocales: Array<string>,
   sameCharLocales: Array<string>,
-  differentCharLocales: Array<string>,
+  differentCharLocales: Array<string>
 ): string {
   return [
     [
-      'locale',
+      "locale",
       `[equal formatting](${outputPrefix}-${outputNames.equal})`,
       `[equal whitespace](${outputPrefix}-${outputNames.whitespace})`,
       `[same chars](${outputPrefix}-${outputNames.sameChars})`,
       `[different chars](${outputPrefix}-${outputNames.different})`,
-    ].join(' | '),
-    '------ | ---------------- | ---------------- | ---------- | ---------------',
-    ...locales.map(locale => {
+    ].join(" | "),
+    "------ | ---------------- | ---------------- | ---------- | ---------------",
+    ...locales.map((locale) => {
       const equal = checkmark(equalFormattingLocales.includes(locale));
       const whitespace = checkmark(equalWhitespaceLocales.includes(locale));
       const sameChars = checkmark(sameCharLocales.includes(locale));
@@ -245,7 +245,7 @@ function markdownCompatibilityTable(
 
       return `[${locale}](${outputPrefix}-${locale}) | ${equal} | ${whitespace} | ${sameChars} | ${different}`;
     }),
-  ].join('\n');
+  ].join("\n");
 }
 
 function generateLocaleOverview(
@@ -253,7 +253,7 @@ function generateLocaleOverview(
   equalFormattingLocales: Array<string>,
   equalWhitespaceLocales: Array<string>,
   sameCharLocales: Array<string>,
-  differentCharLocales: Array<string>,
+  differentCharLocales: Array<string>
 ): void {
   fs.writeFileSync(
     outputPath(outputNames.localeOverview),
@@ -262,8 +262,8 @@ function generateLocaleOverview(
       equalFormattingLocales,
       equalWhitespaceLocales,
       sameCharLocales,
-      differentCharLocales,
-    ),
+      differentCharLocales
+    )
   );
 }
 
@@ -272,22 +272,22 @@ function createGenerateLocaleReport(
   equalFormattingLocales: Array<string>,
   equalWhitespaceLocales: Array<string>,
   sameCharLocales: Array<string>,
-  differentCharLocales: Array<string>,
+  differentCharLocales: Array<string>
 ) {
   return (locale: string): void => {
     fs.writeFileSync(
       outputPath(locale),
       [
         markdownHeadline(`Locale ${locale}:`),
-        markdownTable(table.filter(row => row.locale === locale)),
+        markdownTable(table.filter((row) => row.locale === locale)),
         markdownCompatibilityTable(
           [locale],
           equalFormattingLocales,
           equalWhitespaceLocales,
           sameCharLocales,
-          differentCharLocales,
+          differentCharLocales
         ),
-      ].join('\n'),
+      ].join("\n")
     );
   };
 }
@@ -295,32 +295,30 @@ function createGenerateLocaleReport(
 (async () => {
   const table = await comparisonTable();
 
-  const [equalFormattings, differentFormattings] = partitionEqualFormattings(
-    table,
-  );
-  const [equalWhitespace, differentWhitespace] = partitionEqualWhitespace(
-    differentFormattings,
-  );
+  const [equalFormattings, differentFormattings] =
+    partitionEqualFormattings(table);
+  const [equalWhitespace, differentWhitespace] =
+    partitionEqualWhitespace(differentFormattings);
   const [sameChars, differentChars] = partitionSameChars(differentWhitespace);
 
   const comparisonTables = [
     {
-      headline: 'Equal entries:',
+      headline: "Equal entries:",
       table: equalFormattings,
       name: outputNames.equal,
     },
     {
-      headline: 'Equal without whitespace:',
+      headline: "Equal without whitespace:",
       table: equalWhitespace,
       name: outputNames.whitespace,
     },
     {
-      headline: 'Same chars used:',
+      headline: "Same chars used:",
       table: sameChars,
       name: outputNames.sameChars,
     },
     {
-      headline: 'Completely different entries:',
+      headline: "Completely different entries:",
       table: differentChars,
       name: outputNames.different,
     },
@@ -329,7 +327,7 @@ function createGenerateLocaleReport(
   comparisonTables.forEach(({ headline, table, name }) => {
     fs.writeFileSync(
       outputPath(name),
-      `${markdownHeadline(headline)}\n${markdownTable(table)}`,
+      `${markdownHeadline(headline)}\n${markdownTable(table)}`
     );
   });
 
@@ -344,7 +342,7 @@ function createGenerateLocaleReport(
     equalFormattingLocales,
     equalWhitespaceLocales,
     sameCharLocales,
-    differentCharLocales,
+    differentCharLocales
   );
 
   const generateLocaleReport = createGenerateLocaleReport(
@@ -352,7 +350,7 @@ function createGenerateLocaleReport(
     equalFormattingLocales,
     equalWhitespaceLocales,
     sameCharLocales,
-    differentCharLocales,
+    differentCharLocales
   );
   locales.forEach(generateLocaleReport);
 })();
